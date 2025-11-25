@@ -1,0 +1,27 @@
+{
+  "project": "sample",
+
+
+  "benchtests": [
+    { "testparams": {
+      "runfor":1,
+      "user_step":-2,
+      "valid_status_codes":[200],
+      "error_treshold":5,
+      "users":20,
+      "think_time": [1,2,3],
+      "rampup": 30
+    },
+
+      "name": "detailiesummary",
+      "method": "get",
+      "verify": false,
+      "timeout": 10000,
+      "url": "http://nl:3200/expense/detailiesummary",
+      "headers":{},
+      "data": {},
+      "files": []
+
+    }
+  ]
+}

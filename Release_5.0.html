@@ -1,0 +1,252 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Demo</title>
+  <style>
+    /* Full page background */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      font-family: Arial, sans-serif;
+      background-color: #f9fafb; /* light gray background */
+    }
+
+    /* Centered container */
+    .container {
+      max-width: 900px;
+      margin: 20px auto;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      color: #111827;
+    }
+
+    /* Form rows: label and input side by side */
+    .form-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+	
+	.something {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .form-row label {
+      width: 150px; /* fixed label width */
+      font-weight: 600;
+    }
+
+    .form-row input,
+    .form-row select,
+    .form-row textarea {
+      flex: 1;
+      padding: 6px 8px;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    /* Textarea smaller width */
+    textarea {
+      resize: vertical;
+      height: 60px;
+    }
+
+    /* Toggle button */
+    .toggle-btn {
+      display: inline-block;
+      padding: 8px 14px;
+      background-color: #e5e7eb;
+      color: #111827;
+      border: 1px solid #9ca3af;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    .toggle-btn.active {
+      background-color: #16a34a;
+      color: #fff;
+      border-color: #15803d;
+    }
+
+    /* Submit button */
+    button[type="submit"] {
+      padding: 8px 14px;
+      border-radius: 6px;
+      background: #2563eb;
+      color: #fff;
+      border: 1px solid #1d4ed8;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    /* Image styling */
+    img.responsive {
+      max-width: 100%;
+      height: auto;
+      margin-top: 10px;
+    }
+
+    /* Link styling */
+    a {
+      color: #2563eb;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Demo Page</h2>
+
+    <!-- Name -->
+    <div class="form-row">
+      <label for="name">Name:</label>
+      <input type="text" id="name" name="name" placeholder="Enter your name" />
+    </div>
+
+    <!-- Email -->
+    <div class="somefield">
+      <label for="somefield">ID:</label>
+	  <input type="text" id="somefield" name="somefield" class='somefield' placeholder="somefield" />
+    </div>
+
+<div id="dislike-icon" class="relative group cursor-pointer w-5 h-5 mr-3  dark:text-white hover:text-greenCore-600 dark:hover:text-greenCore-200 active:text-greenCore-600 dark:active:text-greenCore-200 hover:fill-greenCore-600 dark:hover:fill-greenCore-200 active:fill-greenCore-600 dark:active:fill-greenCore-200 dark:fill-white">
+  <div title="" tabindex="3" class="sc-aXZVg gbRgLZ">
+<!--?xml version="1.0" encoding="UTF-8"?-->
+<svg id="Icons" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60">
+  <path transform="rotate(180 30 30)" d="M37.875,22.384V11.336a8.337,8.337,0,0,0-16.674,0V22.384H6.508V57H44.2l9.307-9.371V22.384ZM26.2,11.336a3.337,3.337,0,0,1,6.674,0V22.384H26.2ZM14.754,52H11.508V27.384h3.246Zm33.754-6.432L42.12,52H19.754V27.384H48.508Z"></path>
+</svg>
+</div>
+  <div class="absolute pointer-events-none font-ManulifeLight top-full -left-[12px] -mt-[7px] w-fit h-fit text-sm leading-5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap flex flex-col ">
+    <div class="w-0 h-0 translate-x-4 translate-y-2 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-b-[16px] border-b-black"></div>
+    <div class="z-[3] font-ManulifeLight leading-5 dark:font-ManulifeRegularleft-1/3  w-fit h-9 p-2 dark:bg-black bg-navyNeutral-700 text-white text-sm shadow-lg">Bad response</div></div></div>
+
+
+    <!-- Password -->
+    <div class="form-row">
+      <label for="password">Password:</label>
+      <input type="password" id="password" name="password" />
+    </div>
+
+    <!-- Age -->
+    <div class="form-row">
+      <label for="age">Age:</label>
+      <input type="number" id="age" name="age" />
+    </div>
+
+    <!-- Date of Birth -->
+    <div class="form-row">
+      <label for="dob">Date of Birth:</label>
+      <input type="date" id="dob" name="dob" />
+    </div>
+
+    <!-- Comments -->
+    <div class="form-row">
+      <label for="comments">Comments:</label>
+      <textarea id="comments" name="comments" placeholder="Write your comments"></textarea>
+    </div>
+
+    <!-- Dropdown -->
+    <div class="form-row">
+      <label for="country">Country:</label>
+      <select id="country" name="country">
+        <option value="">— Select —</option>
+        <option value="usa">USA</option>
+        <option value="india">India</option>
+        <option value="uk">UK</option>
+      </select>
+    </div>
+
+    <!-- Checkbox -->
+    <div class="form-row">
+      <label>Subscribe Newsletter:</label>
+      <input type="checkbox" name="subscribe" /> 
+    </div>
+
+    <!-- Radio Buttons -->
+    <div class="form-row">
+      <label>Gender:</label>
+	  <label>Male</label>
+      <input type="radio" name="gender" value="male" /> 
+	  <label>Female</label>
+      <input type="radio" name="gender" value="female" style="margin-left:10px;" /> 
+    </div>
+
+    <!-- Toggle Button -->
+    <div class="form-row">
+      <label>Toggle:</label>
+      <div class="toggle-btn" id="toggleBtn">Toggle Me</div>
+    </div>
+
+    <!-- Submit Button -->
+    <div class="form-row">
+      <label></label>
+      <button type="submit">Submit</button>
+    </div>
+	
+	<!-- Reset Button -->
+    <div class="form-row">
+      <label>Reset</label>
+	  <img src="btn.png" alt='Reset Button' height="40px" width="100px" id='resetBtn' name='resetBtn' />
+    </div>
+
+    <!-- Image -->
+    <div class="form-row">
+      <label>Sample Image:</label>
+      <img src="https://via.placeholder.com/300x150.png?text=Sample+Image" alt="Sample Image" class="responsive" />
+    </div>
+
+    <!-- Link -->
+    <div class="form-row">
+      <label>Visit:</label>
+      <a href="https://www.example.com" target="_blank">Example Website</a>
+    </div>
+  </div>
+
+  <script>
+    // Toggle Button Functionality
+    const toggleBtn = document.getElementById('toggleBtn');
+    toggleBtn.addEventListener('click', () => {
+      toggleBtn.classList.toggle('active');
+    });
+
+	//
+	const dislike_button = document.getElementById('Icons');
+	dislike_button.addEventListener('click', () => {
+      alert('Button clicked!');
+    });
+
+	// Reset Button Functionality
+    const resetBtn = document.getElementById('resetBtn');
+    resetBtn.addEventListener('click', () => {
+    const txtEmail = document.getElementById('somefield');  
+	txtEmail.value = '';
+    });
+
+    // XPath Example (Console)
+    const xpathResult = document.evaluate(
+      '//input[@id="name"]',
+      document,
+      null,
+      XPathResult.FIRST_ORDERED_NODE_TYPE,
+      null
+    );
+    console.log('XPath selected element:', xpathResult.singleNodeValue);
+  </script>
+</body>
+</html>

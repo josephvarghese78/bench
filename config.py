@@ -1,3 +1,4 @@
+project_name="MyProject"
 valid_status_codes=[200,201,204]
 ignore_status_codes=[429,499]
 error_threshold=5
@@ -20,10 +21,39 @@ db_conn=None
 db_filename=""
 db_cursor=None
 
-project_name=""
 suite_id=""
 test_name=""
 test_start_time=None
 error_percent=0
 running_users=0
 current_errors=0
+
+standard_sla = {
+  "avg": 1.56,
+  "percentile_10": 0.5,
+  "percentile_20": 0.6,
+  "percentile_30": 0.7,
+  "percentile_40": 0.8,
+  "percentile_50": 0.9,
+  "percentile_60": 1.0,
+  "percentile_70": 1.2,
+  "percentile_80": 1.5,
+  "percentile_90": 2.0,
+  "percentile_95": 3.0,
+  "percentile_99": 5.0
+}
+
+project_sla={
+  "avg": 1.56,
+  "percentile_10": 0.5,
+  "percentile_20": 0.6,
+  "percentile_30": 0.7,
+  "percentile_40": 0.8,
+  "percentile_50": 0.9,
+  "percentile_60": 1.0,
+  "percentile_70": 1.2,
+  "percentile_80": 1.5,
+  "percentile_90": 2.0,
+  "percentile_95": 3.0,
+  "percentile_99": 5.0
+}

@@ -1,0 +1,168 @@
+def runtest_1():
+    benchtests = cfg.requests_data.get("benchtests", [])
+    for benchtest in benchtests:
+        cfg.users = benchtest['testparams'].get("users", 0)
+        cfg.user_step = benchtest['testparams'].get("user_step", -2)
+        cfg.runfor = benchtest['testparams'].get("runfor", 5)
+        cfg.valid_status_codes = benchtest['testparams'].get("valid_status_codes", [200])
+        cfg.error_threshold = benchtest['testparams'].get("error_threshold", 5)
+        cfg.think_time = benchtest['testparams'].get("think_time", [2, 4, 6])
+        cfg.rampup = benchtest['testparams'].get("rampup", 30)
+        delay_between_thread = cfg.rampup / (cfg.users - 1)
+
+        while cfg.users > 0:
+            cfg.suite_id = str(uuid.uuid4())
+            cfg.test_start_time = time.time()
+            cfg.current_errors = 0
+            cfg.samples_started = 0
+            cfg.samples_completed = 0
+            cfg.running_users = 0
+            cfg.error_percent = 0
+
+            threads = []
+            thread_name = ""
+            i = 0
+            print("=" * 80)
+            print(f"Starting Test Suite | Suite ID: {cfg.suite_id}")
+            print(
+                f"Configuration: Users={cfg.users}, Run Duration={cfg.runfor}min, Error Threshold={cfg.error_threshold}%")
+            print("=" * 80)
+
+            for _ in range(cfg.users):
+                i += 1
+                cfg.running_users = i
+                thread_name = f"User-{i}"
+                t = threading.Thread(target=sample, args=(thread_name, benchtest,))
+                threads.append(t)
+                t.start()
+                print(f"Started {thread_name} (Ramp-up delay: {delay_between_thread:.2f}s)")
+                if i < cfg.users:
+                    time.sleep(delay_between_thread)
+
+            print("\n[INFO] All threads started, waiting for completion...\n")
+            for t in threads:
+                t.join()
+
+            print("\n" + "=" * 80)
+            print(f"Test Suite Completed | Final Error Rate: {cfg.error_percent}%")
+            print("=" * 80 + "\n")
+
+            if cfg.error_percent >= cfg.error_threshold:
+                cfg.users += cfg.user_step
+            else:
+                cfg.users += cfg.user_step
+
+
+def apirequest(benchtest):
+    """
+    Perform API requests defined in cfg.requests_data['requests'].
+    Returns:
+        resp_content: response content (text or JSON)
+        status_code: HTTP status code
+        error_flag: 0 if success, 1 if error
+        think_time: random sleep before request
+    """
+    resp_content = None
+    status_code = 0
+    error_flag = 0
+
+    tt = 0
+    test_name = ""
+
+    try:
+        test_name = benchtest.get("name", "")
+        method = benchtest.get("method", "get").lower()
+        url = benchtest.get("url")
+        headers = benchtest.get("headers", {})
+        verify = benchtest.get("verify", True)
+        timeout = benchtest.get("timeout", 30)
+        data = benchtest.get("data", None)
+        files = benchtest.get("files", None)
+
+        tt = random.choice(cfg.think_time)
+
+        time.sleep(tt)
+
+        if method == "get":
+            resp = requests.get(url, headers=headers, timeout=timeout, verify=verify)
+        elif method == "post":
+            resp = requests.post(url, headers=headers, json=data, timeout=timeout, verify=verify)
+        elif method == "put":
+            resp = requests.put(url, headers=headers, json=data, timeout=timeout, verify=verify)
+        elif method == "delete":
+            resp = requests.delete(url, headers=headers, timeout=timeout, verify=verify)
+        else:
+            return None, 0, 1, tt, test_name
+
+        try:
+            resp_content = resp.json()
+        except ValueError:
+            resp_content = resp.text
+
+        status_code = resp.status_code
+        #error_flag = 0 if resp.ok else 1
+        if status_code in cfg.valid_status_codes:
+            error_flag=0
+        else:
+            error_flag=1
+
+        return resp_content, status_code, error_flag, tt, test_name
+
+    except requests.exceptions.RequestException as e:
+        resp_content = str(e)
+        status_code = -1
+        error_flag = 1
+        return resp_content, status_code, error_flag, tt, test_name
+
+    except Exception as e:
+        status_code = -2
+        return str(e), status_code, 1, tt, test_name
+
+
+def perftest(threadname):
+    i = 0
+    user_session=requests.session()
+    while (time.time() - cfg.test_start_time) < ((cfg.runfor+0) * 60):
+        if cfg.error_percent >= cfg.error_threshold:
+            print(f"[{threadname}] Error threshold reached, stopping...")
+            break
+        i += 1
+        cfg.samples_started += 1
+
+        resp, resp_code, status, think_time, test_name, start_time, start_time_pc, end_time, end_time_pc, response_time = customrequest(user_session)
+        cfg.samples_completed+=1
+        if status == 1:
+            cfg.current_errors += 1
+            print(f"\n[{threadname}] ❌ Request failed")
+            print(f"  Status Code: {resp_code}")
+            print(f"  Response Time: {response_time:.2f}ms")
+        else:
+            print(f"\n[{threadname}] ✓ Request successful")
+            print(f"  Status Code: {resp_code}")
+            print(f"  Response Time: {response_time:.2f}ms")
+
+        cfg.error_percent = (cfg.current_errors / cfg.samples_started) * 100
+        print(f"\n[Summary]")
+        print(f"  Users: {cfg.users}")
+        print(f"  Thread: {threadname}")
+        print(f"  Start Time: {cfg.test_start_time}")
+        print(f"  Iteration: {i}")
+        print(f"  Status_Code: {resp_code}")
+        print(f"  Error Rate: {cfg.error_percent}%")
+        print(f"  Total Samples: {cfg.samples_started}")
+        print("-" * 80)
+
+        log_performance(test_name, threadname, i,
+                        start_time.strftime("%Y-%m-%d %H:%M:%S.%f"),
+                        end_time.strftime("%Y-%m-%d %H:%M:%S.%f"),
+                        cfg.samples_started,
+                        cfg.samples_completed,
+                        cfg.running_users,
+                        think_time * 1000,
+                        response_time,
+                        status,
+                        cfg.error_percent,
+                        resp_code,
+                        str(resp))
+    if (time.time() - cfg.test_start_time) >= ((cfg.runfor+0) * 60):
+        cfg.running_users-=1

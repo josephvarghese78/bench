@@ -1,6 +1,7 @@
 """
 Performance Test Report Generator
 Generates a comprehensive PDF report with graphs from benchmark test results
+pip3 install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-host files.pythonhosted.org pyodbc
 """
 
 import sqlite3
@@ -13,7 +14,7 @@ from datetime import datetime
 import os
 import glob
 import numpy as np
-from pyodbc import connect
+#from pyodbc import connect
 import config as cfg
 from reportlab.lib import pagesizes, colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -95,6 +96,8 @@ def latency_data():
            MIN(response_time) AS min,
            MAX(response_time) AS max,
            AVG(response_time) AS avg,
+           max_threads/AVG(response_time) as throughput,
+           (max_threads/AVG(response_time))/max_threads as efficiency,
            (SELECT response_time FROM ordered o2 
             WHERE o2.suite_name = o1.suite_name AND o2.test_name = o1.test_name AND rn = (cnt + 1)/2) AS median_response_time,
             (SELECT response_time FROM ordered o2 
@@ -270,6 +273,32 @@ def plot_error_vs_success_pie(users, df, ax):
     ax.set_title(f'Success vs Error Rate ({users} user test)', fontsize=14, fontweight='bold')
 
 
+def create_summary_page(ax, result):
+
+    ax.axis('off')
+    ax.set_title("Conclusion", fontsize=14, fontweight='bold')
+    ax.text(0, 0.75, f'System State: {result["state"]}', fontsize=10)
+    ax.text(0, 0.70, f'Safe Concurrency: {result["safe_users"]}', fontsize=10)
+    ax.text(0, 0.65, f'Safe Throughput: {result["safe_throughput"]}', fontsize=10)
+
+    if result["saturation_users"] is None:
+        ax.text(0, .60, f'Saturation found: NA', fontsize=10)
+    else:
+        ax.text(0, .55, f'Saturation Starts At: {result["saturation_users"]}', fontsize=10)
+
+    ax.text(0, .50, f'**Notes:', fontsize=10)
+    v=.45
+    if len(result["notes"])>0:
+        for note in result["notes"]:
+            ax.text(0, v, f'*******>: {note}', fontsize=8)
+            v-=.05
+    else:
+        ax.text(0, v, f'*******>: NA', fontsize=8)
+
+
+
+
+
 def create_cover_page(ax, project_name="ChatMFC", done_by="QA Team", test_date=None):
     """Create a professional cover page with project details"""
     ax.axis('off')
@@ -314,18 +343,17 @@ Test Date: {test_date}"""
 
 
 
-def create_user_latency_report(ax, sla, type):
-    df_latency = latency_data()  # your DataFrame with max_threads and percentile columns
+def create_user_latency_report(ax, df, sla, type):
     percentile_cols = list(sla.keys())[1:]
 
     ax.axis('off')  # no axes for table
-    ax.set_title(f'Users vs Latency Percentiles (sec) - {type}', fontsize=18, fontweight='bold', pad=20,
+    ax.set_title(f'Heat MAP - {type}', fontsize=18, fontweight='bold', pad=20,
                  color='#2C3E50')
 
     # Build table data for matplotlib
     header = ["Users", "Avg"] + [f'{p.split("_")[1]}%' for p in percentile_cols]
     table_data = [header]
-    for _, row in df_latency.iterrows():
+    for _, row in df.iterrows():
         row_data = [row["max_threads"]] + [f'{row["avg"]:.3f}']+ [f"{row[p]:.3f}" for p in percentile_cols]
         table_data.append(row_data)
 
@@ -338,12 +366,69 @@ def create_user_latency_report(ax, sla, type):
     table.scale(1, 1.5)  # adjust row height
 
     # Optional: color cells based on SLA
-    for row_idx, row in enumerate(df_latency.itertuples(), start=1):
+    for row_idx, row in enumerate(df.itertuples(), start=1):
         for col_idx, col in enumerate(['avg'] + percentile_cols, start=1):
             value = getattr(row, col)
             color = "green" if value <= sla[col] else "red"
             table[(row_idx, col_idx)].set_text_props(color=color)
 
+
+
+def create_latency_trend_report(ax, df, col_name, title):
+
+    ax.plot(df['max_threads'], df[col_name], alpha=0.6, linewidth=1, color='blue')
+    ax.set_xlabel('Users')
+    ax.set_ylabel("Response Time (ms)")
+    ax.set_title(title, fontsize=14, fontweight='bold')
+    ax.tick_params(axis='x', rotation=45)
+    ax.grid(True, alpha=0.3)
+    mean_rt = df[col_name].mean()
+
+    #ticks=np.linspace(df[col_name].min(), df[col_name].max(), 5)
+    #ax.set_yticks(ticks)
+    ax.yaxis.set_major_formatter('{x:.3f}')
+    ax.axhline(y=mean_rt, color='red', linestyle='--', linewidth=2, label=f'Mean: {mean_rt:.2f}ms')
+    ax.legend()
+
+def create_userscore_table(ax, items):
+    ax.axis('tight')
+    ax.axis('off')
+
+    table_data = []
+    for item in items:
+        table_row=[]
+        for key,value in item.items():
+            formatted_value = f"{value:.2f}" if isinstance(value, float) else str(value)
+            table_row.append(formatted_value)
+
+        table_data.append(table_row)
+
+    table = ax.table(cellText=table_data, colLabels= ["Users","Latency-SLA","Throughput-Stablity","Latency-Stability","Efficiency-Drop",
+        "Weighted-Score","Grade"], cellLoc='left', loc='center', colWidths=[0.1, 0.2, 0.3, 0.2, 0.2, 0.2, 0.15])
+    table.auto_set_font_size(False)
+    table.set_fontsize(11)
+    table.scale(1, 2.2)
+
+
+    # Style column headers
+    for i in range(7):
+        table[(0, i)].set_facecolor('#3498DB')
+        table[(0, i)].set_text_props(weight='bold', color='white', fontsize=12)
+
+
+    # Style performance metrics with alternating colors
+    for i in range(1, len(table_data) + 1):
+        for j in range(7):
+            if i % 2 == 0:
+                table[(i, j)].set_facecolor('#ECF0F1')
+            else:
+                table[(i, j)].set_facecolor('#FFFFFF')
+            # Make metric names bold
+            #if j == 0:
+            #    table[(i, j)].set_text_props(weight='bold')
+
+    ax.set_title(f'Test Score & Grade', fontsize=18, fontweight='bold', pad=20,
+                 color='#2C3E50')
 
 def create_summary_table(users, stats, ax):
     """Create performance metrics summary table"""
@@ -381,13 +466,121 @@ def create_summary_table(users, stats, ax):
     ax.set_title(f'Performance Metrics Summary ({users} user test.)', fontsize=18, fontweight='bold', pad=20, color='#2C3E50')
 
 
+def detect_saturation(
+        threads,
+        avg_latency,
+        latency_threshold=0.10,  # 10% latency growth allowed between steps
+        efficiency_drop_threshold=0.10,  # 10% efficiency drop allowed
+        throughput_flat_threshold=0.05,  # 5% throughput gain considered flat
+        max_latency_sla=1.0  # absolute SLA threshold in seconds
+):
+
+    sum_of_threads=np.sum(threads)
+    min_thread=np.min(threads)
+    max_thread=np.max(threads)
+
+    threads = np.array(threads, dtype=float)
+    avg_latency = np.array(avg_latency, dtype=float)
+
+    # Metrics
+    throughput = threads / avg_latency
+    efficiency = throughput / threads  # per-user throughput
+
+    # Derivatives
+    throughput_gain_pct = np.diff(throughput) / throughput[:-1]
+    latency_growth = np.diff(avg_latency) / avg_latency[:-1]
+    efficiency_drop = -np.diff(efficiency) / efficiency[:-1]
+
+    safe_index = 0
+    saturation_index = None
+    notes = []
+    test_score=[]
+    test_score_data={}
+
+    for i in range(0, len(threads)):
+        test_score_data={}
+        test_score_data["users"] = str(int(threads[i]))
+        test_score_data["latency_sla"]=0
+        test_score_data["throughput_stablity"]=0
+        test_score_data["latency_stability"]=0
+        test_score_data["efficiency_drop"]=0
+
+        load_factor=(threads[i]-min_thread)/(max_thread-min_thread)
+        inverse_load = 1 - load_factor
+        risk_factor = 1 + (1.3 * inverse_load) + (0.7 * load_factor)
+
+        # Check absolute SLA
+        sla_violation = avg_latency[i] > max_latency_sla
+        if sla_violation:
+            saturation_index = i
+            test_score_data["latency_sla"] = 40 * risk_factor
+            notes.append(f"Latency {avg_latency[i]:.3f}s exceeds SLA {max_latency_sla}s")
+            #break
+
+        # Healthy scaling check
+        tp_health = throughput_gain_pct[i - 1] > throughput_flat_threshold
+        lt_health= latency_growth[i - 1] < latency_threshold
+        ef_health= efficiency_drop[i - 1] < efficiency_drop_threshold
+        healthy=(tp_health and lt_health and ef_health)
+
+        if healthy:
+            safe_index = i
+        else:
+            saturation_index = i
+            if not tp_health:
+                test_score_data["throughput_stablity"] = 25 * (1 + 0.7 * (risk_factor - 1))
+                notes.append(f"Throughput flattening reducing overtime, this indicates system is failing to scale or not getting response in time, found in {i} user test.")
+
+            if not lt_health:
+                test_score_data["latency_stability"] = 25 * (1 + 0.5 * (risk_factor - 1))
+                notes.append(f"Lattency is increasing, this indicates when load increases response time delays, found in {i} user test.")
+
+            if not ef_health:
+                test_score_data["efficiency_drop"] = 10 * 1
+                notes.append(f"Efficiency drops >10% when user load increases, found in {i} user test.")
+            break
+        test_score_data["weighted_score"]=100-(test_score_data["latency_sla"]+
+                                                            test_score_data["throughput_stablity"]+
+                                                            test_score_data["latency_stability"]+
+                                                            test_score_data["efficiency_drop"])
+
+        if test_score_data["weighted_score"]>=90 and test_score_data["weighted_score"]<=100:
+            test_score_data["grade"]="Excellent"
+        elif test_score_data["weighted_score"]>=80 and test_score_data["weighted_score"]<=89:
+            test_score_data["grade"]="Very Good"
+        elif test_score_data["weighted_score"]>=70 and test_score_data["weighted_score"]<=79:
+            test_score_data["grade"]="Good"
+        elif test_score_data["weighted_score"]>=60 and test_score_data["weighted_score"]<=69:
+            test_score_data["grade"]="Fair"
+        elif test_score_data["weighted_score"]>=50 and test_score_data["weighted_score"]<=59:
+            test_score_data["grade"]="Poor"
+        else:
+            test_score_data["grade"]="Fail"
+
+        test_score.append(test_score_data)
+
+    state = "SCALING (No saturation detected)" if saturation_index is None else "SATURATION DETECTED"
+
+    return {
+        "safe_users": int(threads[safe_index]),
+        "safe_throughput": float(throughput[safe_index]),
+        "saturation_users": int(threads[saturation_index]) if saturation_index is not None else None,
+        "state": state,
+        "throughput": throughput,
+        "efficiency": efficiency,
+        "avg_latency":avg_latency,
+        "notes": notes,
+        "threads": threads,
+        "test_score": test_score
+    }
+
 
 def generate_pdf_report(db_path=None, output_path=None, project_name="ChatMFC", done_by="QA Team"):
     """Generate comprehensive PDF report with all graphs"""
     try:
         db_path = get_latest_db_file(db_path)
         connect_to_db(db_path)
-
+        user_threads=[]
 
 
 
@@ -418,9 +611,10 @@ def generate_pdf_report(db_path=None, output_path=None, project_name="ChatMFC", 
 
 
             for suite, users in rows:
+                user_threads.append(users)
                 df = load_test_data(suite)
                 stats = create_summary_stats(df)
-                """
+
                 # Page 2: Performance Metrics Summary
                 print("Creating page 2: Performance Metrics Summary...")
                 fig, ax = plt.subplots(figsize=(11, 8.5))
@@ -428,6 +622,7 @@ def generate_pdf_report(db_path=None, output_path=None, project_name="ChatMFC", 
                 plt.tight_layout()
                 pdf.savefig(fig, dpi=300)
                 plt.close()
+
 
                 print("Creating page 3: Response Time Over Time...")
                 fig, ax = plt.subplots(figsize=(12, 6))
@@ -491,7 +686,7 @@ def generate_pdf_report(db_path=None, output_path=None, project_name="ChatMFC", 
                 plt.tight_layout()
                 pdf.savefig(fig, dpi=300)
                 plt.close()
-                """
+
                 d = pdf.infodict()
                 d['Title'] = 'Performance Test Report'
                 d['Author'] = 'Performance Test Framework'
@@ -499,20 +694,78 @@ def generate_pdf_report(db_path=None, output_path=None, project_name="ChatMFC", 
                 d['Keywords'] = 'Performance Testing, Load Testing, Benchmarking'
                 d['CreationDate'] = datetime.now()
 
-            print("Creating page 12: Users vs Latency Percentiles... standard")
-            fig, ax = plt.subplots(figsize=(11, 8.5))
-            create_user_latency_report(ax, cfg.standard_sla, "Standard")
+            df_latency = latency_data()
+            print("Creating page 12: Heat MAP... standard")
+            fig, ax = plt.subplots(figsize=(12, 6))
+            create_user_latency_report(ax, df_latency, cfg.standard_sla, "Standard")
             plt.tight_layout()
             pdf.savefig(fig, dpi=300)
             plt.close()
 
-            print("Creating page 13: Users vs Latency Percentiles... project")
-            fig, ax = plt.subplots(figsize=(11, 8.5))
-            print("pname", cfg.project_name)
-            create_user_latency_report(ax, cfg.project_sla, cfg.project_name)
+            print("Creating page 13: Heat MAP.. project")
+            fig, ax = plt.subplots(figsize=(12, 6))
+            create_user_latency_report(ax, df_latency, cfg.project_sla, cfg.project_name)
             plt.tight_layout()
             pdf.savefig(fig, dpi=300)
             plt.close()
+
+
+
+
+            print("Creating page 14: Latency/Pecentile trend")
+            cols=['Avg', '90','95','99']
+            for col in cols:
+                if col=="Avg":
+                    col_name="avg"
+                    title="Avg Latency Trend"
+                else:
+                    col_name=f"percentile_{col}"
+                    title= f"{col}% Latency Trend "
+                fig, ax = plt.subplots(figsize=(12, 6))
+                create_latency_trend_report(ax, df_latency, col_name, title)
+                plt.tight_layout()
+                pdf.savefig(fig, dpi=300)
+                plt.close()
+
+            print("Creating page 15: Throughput trend")
+            fig, ax = plt.subplots(figsize=(12, 6))
+            create_latency_trend_report(ax, df_latency, "throughput", "Throughput Trend")
+            plt.tight_layout()
+            pdf.savefig(fig, dpi=300)
+            plt.close()
+
+            print("Creating page 15: Efficiency trend")
+            fig, ax = plt.subplots(figsize=(12, 6))
+            create_latency_trend_report(ax, df_latency, "efficiency", "Efficiency Trend")
+            plt.tight_layout()
+            pdf.savefig(fig, dpi=300)
+            plt.close()
+
+            threads = []
+            avg_lat = []
+            for _, row in df_latency.iterrows():
+                threads.append(row["max_threads"])
+                avg_lat.append(row["avg"])
+
+            result = detect_saturation(threads, avg_lat)
+
+            print("Creating page 16: User Score & Grade")
+            fig, ax = plt.subplots(figsize=(11, 8.5))
+            create_userscore_table(ax, result["test_score"])
+            plt.tight_layout()
+            pdf.savefig(fig, dpi=300)
+            plt.close()
+
+            print("Creating page 17: Summary")
+            fig, ax = plt.subplots(figsize=(11, 8.5))
+            #create_latency_trend_report(ax, df_latency, "efficiency", "Efficiency Trend")
+            create_summary_page(ax, result)
+            plt.tight_layout()
+            pdf.savefig(fig, dpi=300)
+            plt.close()
+
+
+
 
         print("=" * 80)
         print(f"\n✓ PDF report generated successfully!")
@@ -539,6 +792,5 @@ def generate_pdf_report(db_path=None, output_path=None, project_name="ChatMFC", 
 
 generate_pdf_report("./db", "./reports", "test123", "QA Team")
 
-#connect_to_db("./db/sample_1.db")
-#print(get_suite_names())
-#close_db()
+
+#create_userscore_table(None, None)

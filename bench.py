@@ -58,7 +58,11 @@ class user_thread():
     def start_user(self):
         i=0
         user_session = requests.session()
+
+
+
         while (time.time() - cfg.test_start_time) < ((cfg.runfor+0) * 60):
+
             if cfg.error_percent >= cfg.error_threshold:
                 print(f"[{self.thread_name}] Error threshold reached, stopping...")
                 break
@@ -141,6 +145,7 @@ def runtest():
         print("=" * 80 + "\n")
 
         for _ in range(cfg.users):
+            cfg.test_start_time = time.time()
             i += 1
             cfg.running_users = i
             thread_name = f"User-{i}"
@@ -149,6 +154,7 @@ def runtest():
             threads.append(t)
             t.start()
             print(f"[{datetime.now().strftime('%H:%M:%S')}] Started {thread_name}")
+
             if i < cfg.users:
                 if isinstance(cfg.rampup_per_user, list):
                     time.sleep(random.choice(cfg.rampup_per_user))
@@ -157,7 +163,7 @@ def runtest():
                 else:
                     time.sleep(2)
 
-
+        cfg.test_start_time = time.time()
         print(f"\n[INFO] All {cfg.users} threads started successfully, waiting for completion...\n")
 
         for t in threads:

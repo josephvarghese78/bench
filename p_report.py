@@ -6,6 +6,7 @@ pip3 install --trusted-host pypi.org --trusted-host pypi.python.org --trusted-ho
 
 import sqlite3
 import pandas as pd
+import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.backends.backend_pdf import PdfPages
@@ -342,13 +343,87 @@ Test Date: {test_date}"""
             transform=ax.transAxes, color='#95A5A6')
 
 
+def get_colorcode(per):
+    if per <= 0:
+        color = "#006400"
+        txt_color = "white"
+    elif per > 0 and per <= 5:
+        color = "#1a7a00"
+        txt_color = "white"
+    elif per > 5 and per <= 10:
+        color = "#338f00"
+        txt_color = "white"
+    elif per > 10 and per <= 15:
+        color = "#4da500"
+        txt_color = "white"
+    elif per > 15 and per <= 20:
+        color = "#66bb00"
+        txt_color = "black"
+    elif per > 20 and per <= 25:
+        color = "#80d100"
+        txt_color = "black"
+    elif per > 25 and per <= 30:
+        color = "#99e600"
+        txt_color = "black"
+    elif per > 30 and per <= 35:
+        color = "#b3fc00"
+        txt_color = "black"
+    elif per > 35 and per <= 40:
+        color = "#ccff00"
+        txt_color = "black"
+    elif per > 40 and per <= 45:
+        color = "#e6ff00"
+        txt_color = "black"
+    elif per > 45 and per <= 50:
+        color = "#ffff00"
+        txt_color = "black"
+    elif per > 50 and per <= 55:
+        color = "#ffe600"
+        txt_color = "black"
+    elif per > 55 and per <= 60:
+        color = "#ffcc00"
+        txt_color = "black"
+    elif per > 60 and per <= 65:
+        color = "#ffb300"
+        txt_color = "black"
+    elif per > 65 and per <= 70:
+        color = "#ff9900"
+        txt_color = "black"
+    elif per > 70 and per <= 75:
+        color = "#ff8000"
+        txt_color = "black"
+    elif per > 75 and per <= 80:
+        color = "#ff6600"
+        txt_color = "white"
+    elif per > 80 and per <= 85:
+        color = "#ff4d00"
+        txt_color = "white"
+    elif per > 85 and per <= 90:
+        color = "#ff3300"
+        txt_color = "white"
+    elif per > 90 and per <= 95:
+        color = "#ff1a00"
+        txt_color = "white"
+    elif per > 95 and per <= 100:
+        color = "#8b0000"
+        txt_color = "white"
+    else:
+        color = "#4a0000"
+        txt_color = "white"
+    return color, txt_color
 
-def create_user_latency_report(ax, df, sla, type):
+def create_heatmap_latency_report(ax, df, sla, type):
     percentile_cols = list(sla.keys())[1:]
 
     ax.axis('off')  # no axes for table
     ax.set_title(f'Heat MAP - {type}', fontsize=18, fontweight='bold', pad=20,
                  color='#2C3E50')
+    patches=[]
+    for i in range(0, 22):
+        color, txt_color=get_colorcode(i*5)
+        patches.append(mpatches.Patch(color=color, label=""))
+
+    ax.legend(handles=patches, title="", loc='upper left',  ncol=len(patches), handleheight=1, columnspacing=0, handlelength=1, handletextpad=0, borderpad=0)
 
     # Build table data for matplotlib
     header = ["Users", "Avg"] + [f'{p.split("_")[1]}%' for p in percentile_cols]
@@ -365,13 +440,46 @@ def create_user_latency_report(ax, df, sla, type):
     table.set_fontsize(8)
     table.scale(1, 1.5)  # adjust row height
 
+    #"percentile_10": 0.5,
+    #"percentile_20": 0.6,
+    #v= .540
+
     # Optional: color cells based on SLA
     for row_idx, row in enumerate(df.itertuples(), start=1):
         for col_idx, col in enumerate(['avg'] + percentile_cols, start=1):
             value = getattr(row, col)
-            color = "green" if value <= sla[col] else "red"
-            table[(row_idx, col_idx)].set_text_props(color=color)
+            if col=="avg":
+                p=0
+            else:
+                p=int(str(col).split("_")[1])
+            s=0
+            e=0
+            if p==0:
+                s=0
+                e=sla.get(col, 0)
+            elif p == 10:
+                s = 0
+                e = sla.get(col, 0)
+            elif p == 99:
+                s = sla.get(f"percentile_95", 0)
+                e = sla.get(col, 0)
+            elif p== 95:
+                s = sla.get(f"percentile_90", 0)
+                e = sla.get(col, 0)
+            else:
+                s = sla.get(f"percentile_{p - 10}", 0)
+                e = sla.get(f"percentile_{p}", 0)
 
+            m = f"{np.median([s, e]):.3f}"
+            s = f"{s:.3f}"
+            e = f"{e:.3f}"
+
+
+            per = round(((value - float(s)) / (float(e) - float(s))) * 100, 0)
+
+            color, txt_color=get_colorcode(per)
+            table[(row_idx, col_idx)].set_facecolor(color)
+            table[(row_idx, col_idx)].set_text_props(color=txt_color)
 
 
 def create_latency_trend_report(ax, df, col_name, title):
@@ -697,14 +805,14 @@ def generate_pdf_report(db_path=None, output_path=None, project_name="ChatMFC", 
             df_latency = latency_data()
             print("Creating page 12: Heat MAP... standard")
             fig, ax = plt.subplots(figsize=(12, 6))
-            create_user_latency_report(ax, df_latency, cfg.standard_sla, "Standard")
+            create_heatmap_latency_report(ax, df_latency, cfg.standard_sla, "Standard")
             plt.tight_layout()
             pdf.savefig(fig, dpi=300)
             plt.close()
 
             print("Creating page 13: Heat MAP.. project")
             fig, ax = plt.subplots(figsize=(12, 6))
-            create_user_latency_report(ax, df_latency, cfg.project_sla, cfg.project_name)
+            create_heatmap_latency_report(ax, df_latency, cfg.project_sla, cfg.project_name)
             plt.tight_layout()
             pdf.savefig(fig, dpi=300)
             plt.close()
@@ -792,5 +900,3 @@ def generate_pdf_report(db_path=None, output_path=None, project_name="ChatMFC", 
 
 generate_pdf_report("./db", "./reports", "test123", "QA Team")
 
-
-#create_userscore_table(None, None)

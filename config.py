@@ -29,18 +29,18 @@ running_users=0
 current_errors=0
 
 standard_sla = {
-  "avg": 1.56,
-  "percentile_10": 0.5,
-  "percentile_20": 0.6,
-  "percentile_30": 0.7,
-  "percentile_40": 0.8,
-  "percentile_50": 0.9,
-  "percentile_60": 1.0,
-  "percentile_70": 1.2,
-  "percentile_80": 1.5,
-  "percentile_90": 2.0,
-  "percentile_95": 3.0,
-  "percentile_99": 5.0
+  "avg": 0.05,
+  "percentile_10": 0.1,
+  "percentile_20": 0.2,
+  "percentile_30": 0.3,
+  "percentile_40": 0.4,
+  "percentile_50": 0.5,
+  "percentile_60": 0.6,
+  "percentile_70": 0.7,
+  "percentile_80": 0.8,
+  "percentile_90": .9,
+  "percentile_95": .95,
+  "percentile_99": .99
 }
 
 project_sla={
